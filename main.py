@@ -3,6 +3,8 @@ import argparse
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from prompts import system_prompt
+from call_function import *
 
 def main():
     load_dotenv()
@@ -21,7 +23,12 @@ def main():
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=messages
+        contents=messages,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt, 
+            temperature=0,
+            tools=[available_functions],
+            )
     )    
     
     if response.usage_metadata == None:
@@ -33,6 +40,24 @@ def main():
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
     print(f"Response:\n{response.text}")
 
+    if response.function_calls:
+
+        function_call_responses = []
+        for function_call in response.function_calls:
+            function_call_result = call_function(function_call)
+
+            if not function_call_result.parts:
+                raise Exception("Unexpected response received")
+            
+            if not function_call_result.parts[0].function_response:
+                raise Exception("No function call returned")
+
+            if not function_call_result.parts[0].function_response.response:
+                raise Exception("No function call response received")
+            
+            function_call_responses.append(function_call_result.parts[0])
+            if args.verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
 
 if __name__ == "__main__":
     main()
