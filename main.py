@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -23,29 +24,38 @@ def main():
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
 
+
     generate_content(client, messages, args.verbose)
 
 def generate_content(client, messages, verbose):
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=messages,
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt, 
-            temperature=0,
-            tools=[available_functions],
-            )
-    )    
-    
-    if response.usage_metadata == None:
-        raise RuntimeError("no response received")
 
-    if verbose:
-        print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-        print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+    for _ in range(20):
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=messages,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                tools=[available_functions],
+                )
+        )    
+        
+        if response.usage_metadata == None:
+            raise RuntimeError("no response received")
 
+        if verbose:
+            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+            print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+        
+        if not response.function_calls:
+            print("Response:")
+            print(response.text)
+            return
+        
+        if response.candidates:
+            for candidate in response.candidates:
+                messages.append(candidate.content)
 
-    function_call_responses = []
-    if response.function_calls:
+        function_call_responses = []
         for function_call in response.function_calls:
             function_call_result = call_function(function_call, verbose)
 
@@ -61,6 +71,12 @@ def generate_content(client, messages, verbose):
             function_call_responses.append(function_call_result.parts[0])
             if verbose:
                 print(f"-> {function_call_result.parts[0].function_response.response}")
+            
+        messages.append(types.Content(role="user", parts=function_call_responses))
+
+    print("unable to resolve to a final response after 20 tries, EXIT")
+    sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
