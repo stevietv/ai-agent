@@ -9,6 +9,7 @@ class Calculator:
             "/": lambda a, b: a / b,
             "**": lambda a, b: a ** b,
             "sqrt": lambda a: math.sqrt(a),
+            "%": lambda a: a / 100, # New percentage operator
         }
         self.precedence = {
             "+": 1,
@@ -17,6 +18,7 @@ class Calculator:
             "/": 2,
             "**": 3,
             "sqrt": 4,  # Higher precedence for sqrt
+            "%": 4, # Higher precedence for percentage, similar to sqrt
         }
 
     def evaluate(self, expression):
@@ -28,6 +30,8 @@ class Calculator:
     def _tokenize(self, expression):
         # This simple tokenizer assumes space-separated tokens.
         # For more complex expressions, a more robust tokenizer would be needed.
+        # Replace percentage sign with space around it to treat it as a separate token
+        expression = expression.replace("%", " % ")
         return expression.replace("(", " ( ").replace(")", " ) ").strip().split()
 
     def _evaluate_infix(self, tokens):
@@ -35,7 +39,7 @@ class Calculator:
         operators = []
 
         i = 0
-        while i < len(tokens):
+        while i < len(tokens):\
             token = tokens[i]
 
             if token == "(":
@@ -48,7 +52,8 @@ class Calculator:
                 else:
                     raise ValueError("Mismatched parentheses")
             elif token in self.operators:
-                if token == "sqrt":  # Handle unary sqrt
+                # Handle unary operators like sqrt and %
+                if token == "sqrt" or token == "%":
                     operators.append(token)
                 else:
                     while (
@@ -79,7 +84,7 @@ class Calculator:
 
         operator = operators.pop()
 
-        if operator == "sqrt":
+        if operator == "sqrt" or operator == "%": # Handle unary sqrt and %
             if len(values) < 1:
                 raise ValueError(f"not enough operands for operator {operator}")
             a = values.pop()
@@ -89,4 +94,4 @@ class Calculator:
                 raise ValueError(f"not enough operands for operator {operator}")
             b = values.pop()
             a = values.pop()
-            values.append(self.operators[operator](a, b))
+            values.append(self.operators[operator](a, b))\n
